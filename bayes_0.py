@@ -2,15 +2,14 @@
 # Name: 
 # Date:
 # Description: bayes_0.py is designed for training all files and classify user entered text
-#
-#
+
 
 import math, os, pickle, re
 from random import shuffle
 
 
 class Bayes_Classifier:
-   directory = "movie_reviews/"
+   
    def __init__(self):
       """This method initializes and trains the Naive Bayes Sentiment Classifier.  If a 
       cache of a trained classifier has been stored, it loads this cache.  Otherwise, 
@@ -26,8 +25,9 @@ class Bayes_Classifier:
       # self.directory = "test_reviews/"
    def train(self):   
       """Trains the Naive Bayes Sentiment Classifier."""
+      directory = "movie_reviews/"
       allFiles = []
-      for f in os.walk(self.directory):
+      for f in os.walk(directory):
          allFiles = f[2]
          break
 
@@ -41,63 +41,70 @@ class Bayes_Classifier:
       numPosFiles = 0
       numNegFiles = 0
       numVocabulary = 0
-      visited = []
-      # negFreq = {}
-      # negPres = {}
+      posiFreq = {}
+      negFreq = {}
+
       for f in allFiles:
          # print f
          fTokens = self.fileNameTokenize(f)
          if "1" in fTokens:
             numNegFiles +=1
             # print "it is a negative comment\n"
-            content = self.loadFile(self.directory+f)
+            content = self.loadFile(directory+f)
             words = self.tokenize(content)
             
             for w in words:
-               if w in self.negFreq.keys():
-                  self.negFreq[w] += 1
+               if w in negFreq.keys():
+                  negFreq[w] += 1
                else:
-                  self.negFreq[w] = 1
+                  negFreq[w] = 1
 
             
          elif "5" in fTokens:
             numPosFiles += 1
             # print "positive comment\n"
-            content = self.loadFile(self.directory+f)
+            content = self.loadFile(directory+f)
             words = self.tokenize(content)
 
             for w in words:
-               if w in self.posiFreq.keys():
-                  self.posiFreq[w] += 1
+               if w in posiFreq.keys():
+                  posiFreq[w] += 1
                else:
-                  self.posiFreq[w] = 1
+                  posiFreq[w] = 1
 
+      #calculate the size of vocabulary
+      visited = []
+      for x in posiFreq.keys():
+         if x not in visited:
+            visited.append(x)
+      vocSize = len(visited)
       #convert dictionaries of counts into dictionaries of possibilities 
       print "numPosFiles: ",
       print numPosFiles
       print "numNegFiles",
       print numNegFiles
       posiFreqSum = 0
-      for b in self.posiFreq.values():
+      for b in posiFreq.values():
          posiFreqSum += b
-      for a in self.posiFreq.keys():
-         c = self.posiFreq[a]
-         self.posiFreq[a] = math.log((c+1)/float(posiFreqSum+0), 10)
-      self.pseudoPosiPossibility = math.log(1/float(posiFreqSum+0), 10)
+      for a in posiFreq.keys():
+         c = posiFreq[a]
+         posiFreq[a] = math.log((c+1)/float(posiFreqSum+vocSize), 10)
+      self.pseudoPosiPossibility = math.log(1/float(posiFreqSum+vocSize), 10)
 
       negFreqSum = 0
-      for b in self.negFreq.values():
+      for b in negFreq.values():
          negFreqSum += b
-      for a in self.negFreq.keys():
-         c = self.negFreq[a]
-         self.negFreq[a] = math.log((c+1)/float(negFreqSum+len(visited)),10)
-      self.pseudoNegPossibility = math.log(1/float(negFreqSum+len(visited)), 10)
+      for a in negFreq.keys():
+         c = negFreq[a]
+         negFreq[a] = math.log((c+1)/float(negFreqSum+vocSize),10)
+      self.pseudoNegPossibility = math.log(1/float(negFreqSum+vocSize), 10)
 
-      print "negFreqSum",
-      print negFreqSum
-      print "posiFreqSum",
-      print posiFreqSum
-
+      # print "negFreqSum",
+      # print negFreqSum
+      # print "posiFreqSum",
+      # print posiFreqSum
+      self.posiFreq = posiFreq
+      self.negFreq = negFreq
       result = [self.posiFreq, self.negFreq, self.pseudoPosiPossibility, self.pseudoNegPossibility]
       self.save(result, "pickle_0.txt")
     
