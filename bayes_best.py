@@ -7,7 +7,9 @@
 import math, os, pickle, re
 from random import shuffle
 from nltk.stem.porter import *
-
+import sys
+reload(sys)
+sys.setdefaultencoding("cp1252")
 
 class Bayes_Classifier:
    directory = "movie_reviews/"
@@ -54,7 +56,7 @@ class Bayes_Classifier:
       for i in range(10):
          self.posiFreq={}
          self.negFreq={}
-         print "running Test with removing noise" + str(i)
+         print "running Test with stemming(cp1252) and eliminating low-information features " + str(i)
          self.testingSet = groups[i]
          self.trainingSet = [x for x in allFiles if x not in groups[i]]
          #print "Preaparing training set"

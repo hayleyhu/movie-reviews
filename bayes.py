@@ -8,8 +8,8 @@
 import math, os, pickle, re
 from random import shuffle
 
+
 class Bayes_Classifier:
-   directory = "movie_reviews/"
    
    def __init__(self):
       """This method initializes and trains the Naive Bayes Sentiment Classifier.  If a 
@@ -31,7 +31,7 @@ class Bayes_Classifier:
 
    def prepareData(self):
       allFiles = []
-      for f in os.walk(self.directory):
+      for f in os.walk("movie_reviews/"):
          allFiles = f[2]
          break
       numFiles = len(allFiles)
@@ -71,8 +71,8 @@ class Bayes_Classifier:
       numNegFiles = 0
       visited = []
 
-      # negFreq = {}
-      # negPres = {}
+      posiFreq = {}
+      negFreq = {}
       for f in self.trainingSet:
          #print f
          visited = []
@@ -80,14 +80,14 @@ class Bayes_Classifier:
          if "1" in fTokens:
             numNegFiles +=1
             #print "it is a negative comment\n"
-            content = self.loadFile(self.directory+f)
+            content = self.loadFile("movie_reviews/"+f)
             words = self.tokenize(content)
             len(words)
             for w in words:
-               if w in self.negFreq.keys():
-                  self.negFreq[w] += 1
+               if w in negFreq.keys():
+                  negFreq[w] += 1
                else:
-                  self.negFreq[w] = 1
+                  negFreq[w] = 1
                if w not in visited:
                  visited.append(w)
                   # if w in negPres.keys():
@@ -97,14 +97,14 @@ class Bayes_Classifier:
          elif "5" in fTokens:
             numPosFiles += 1
             #print "positive comment\n"
-            content = self.loadFile(self.directory+f)
+            content = self.loadFile("movie_reviews/"+f)
             words = self.tokenize(content)
             len(words)
             for w in words:
-               if w in self.posiFreq.keys():
-                  self.posiFreq[w] += 1
+               if w in posiFreq.keys():
+                  posiFreq[w] += 1
                else:
-                  self.posiFreq[w] = 1
+                  posiFreq[w] = 1
                if w not in visited:
                   visited.append(w)
                #    if w in negPres.keys():
@@ -117,24 +117,25 @@ class Bayes_Classifier:
       print "numNegFiles",
       print numNegFiles
       posiFreqSum = 0
-      for b in self.posiFreq.values():
+      for b in posiFreq.values():
          posiFreqSum += b
-      for a in self.posiFreq.keys():
-         c = self.posiFreq[a]
-         self.posiFreq[a] = math.log((c+1)/float(posiFreqSum+len(visited)), 10)
+      for a in posiFreq.keys():
+         c = posiFreq[a]
+         posiFreq[a] = math.log((c+1)/float(posiFreqSum+len(visited)), 10)
       self.pseudoPosiPossibility = math.log(1/float(posiFreqSum+len(visited)), 10)
 
       negFreqSum = 0
-      for b in self.negFreq.values():
+      for b in negFreq.values():
          negFreqSum += b
-      for a in self.negFreq.keys():
-         c = self.negFreq[a]
-         self.negFreq[a] = math.log((c+1)/float(negFreqSum+len(visited)),10)
+      for a in negFreq.keys():
+         c = negFreq[a]
+         negFreq[a] = math.log((c+1)/float(negFreqSum+len(visited)),10)
       self.pseudoNegPossibility = math.log(1/float(negFreqSum+len(visited)), 10)
-
+      
+      self.posiFreq = posiFreq
+      self.negFreq = negFreq
       result = [self.posiFreq, self.negFreq]
       self.save(result, "pickle.txt")
-
       # test the chosen 1/10 of files 
     
    def classify(self, sText):
@@ -174,7 +175,7 @@ class Bayes_Classifier:
    def classifyTest(self):
       #self.macroTable = [[0,0,0],[0,0,0]]
       for i in self.testingSet:
-         result = self.classify(self.loadFile(self.directory + i))
+         result = self.classify(self.loadFile("movie_reviews/" + i))
          fTokens = self.fileNameTokenize(i)
          if ("5" in fTokens):
             if result == "Positive":
