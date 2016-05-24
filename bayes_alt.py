@@ -23,18 +23,18 @@ class Bayes_Classifier:
       is ready to classify input text."""
 
       #clear the pickled content
-      with open("pickle.txt", "w"):
+      with open("picklebest.txt", "w"):
          pass
 
-      if os.stat("pickle.txt").st_size != 0:
-         self.posiFreq, self.negFreq = self.load("pickle.txt")
-         print "pickle.txt is not empty. Unpickled dictionaries."
+      if os.stat("picklebest.txt").st_size != 0:
+         self.posiFreq, self.negFreq = self.load("picklebest.txt")
+         print "picklebest.txt is not empty. Unpickled dictionaries."
       else: 
          print "begin trainning"
          self.posiFreq={}
          self.negFreq={}
          #self.train()
-
+#prepareData does the 10-fold cross-validation for the algorithm
    def prepareData(self):
       allFiles = []
       for f in os.walk(self.directory):
@@ -66,7 +66,7 @@ class Bayes_Classifier:
          print i,
          print " ends."
          #print "Clearing pickle"
-         with open("pickle.txt", "w"):
+         with open("picklebest.txt", "w"):
             pass
 
       
@@ -139,11 +139,11 @@ class Bayes_Classifier:
       self.pseudoNegPossibility = math.log(1/float(negFreqSum+len(visited)), 10)
 
       result = [self.posiFreq, self.negFreq]
-      self.save(result, "pickle.txt")
+      self.save(result, "picklebest.txt")
 
       # test the chosen 1/10 of files 
     
-   def classify(self, sText):
+   def classify(self, sText, considerNeutral=True):
       """Given a target string sText, this function returns the most likely document
       class to which the target string belongs (i.e., positive, negative or neutral).
       """
@@ -176,13 +176,15 @@ class Bayes_Classifier:
       # ratio = isPosi/isNeg
       # if ratio < upperBound and ratio > lowerBound: return "Neutral"
       # el
-      if isPosi > isNeg: return "Positive"
+      ratio = isPosi/isNeg
+      if considerNeutral and (ratio < 1.005 and ratio > 0.995): return "Neutral"
+      elif isPosi > isNeg: return "Positive"
       return "Negative"
    
    def classifyTest(self):
       #self.macroTable = [[0,0,0],[0,0,0]]
       for i in self.testingSet:
-         result = self.classify(self.loadFile(self.directory + i))
+         result = self.classify(self.loadFile(self.directory + i), False)
          fTokens = self.fileNameTokenize(i)
          if ("5" in fTokens):
             if result == "Positive":

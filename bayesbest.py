@@ -12,26 +12,36 @@ reload(sys)
 sys.setdefaultencoding("cp1252")
 
 class Bayes_Classifier:
-   directory = "movie_reviews/"
+   directory = "movies_reviews/"
    
-   def __init__(self):
+   def __init__(self, evaluation=False):
       """This method initializes and trains the Naive Bayes Sentiment Classifier.  If a 
       cache of a trained classifier has been stored, it loads this cache.  Otherwise, 
       the system will proceed through training.  After running this method, the classifier 
       is ready to classify input text."""
-
+      if evaluation: 
+         print "For 10-fold evaluation of improved algorithm, run prepareData() to train data and test"
       #clear the pickled content
-      with open("pickle.txt", "w"):
-         pass
+         with open("pickle.txt", "w"):
+            pass
 
-      if os.stat("pickle.txt").st_size != 0:
-         self.posiFreq, self.negFreq = self.load("pickle.txt")
-         print "pickle.txt is not empty. Unpickled dictionaries."
-      else: 
-         print "begin trainning"
-         self.posiFreq={}
-         self.negFreq={}
+         if os.stat("pickle.txt").st_size != 0:
+            self.posiFreq, self.negFreq = self.load("pickle.txt")
+            print "pickle.txt is not empty. Unpickled dictionaries."
+         else: 
+            self.posiFreq={}
+            self.negFreq={}
          #self.train()
+      else:
+         print "Run classify(\"Your text\") to classify your sentiment."
+         if os.stat("pickle.txt").st_size != 0:
+            self.posiFreq, self.negFreq, self.pseudoPosiPossibility, self.pseudoNegPossibility= self.load("pickle.txt")
+         else: 
+            print "Dictionaries are not picked yet, training the data"
+            self.posiFreq={}
+            self.negFreq={}
+            self.train()
+
 
    def prepareData(self):
       #print "Clearing pickle"
@@ -61,16 +71,103 @@ class Bayes_Classifier:
          self.trainingSet = [x for x in allFiles if x not in groups[i]]
          #print "Preaparing training set"
          #print self.trainingSet
-         self.train()
+         self.train_for_evaluation()
          self.classifyTest()
          print "classify ",
          print i,
          print " ends."
 
 
+   def train(self):
+      """Trains the Naive Bayes Sentiment Classifier."""
+      directory = "movies_reviews/"
+      allFiles = []
+      for f in os.walk(directory):
+         allFiles = f[2]
+         break
+
+      #select a randomed 10% for testing
+      # shuffle(allFiles)
+      # allFiles = allFiles[:len(allFiles)/10]
+      numFiles = len(allFiles)
+      # print "testing numFiles is: ",
+      # print numFiles
+
+      numPosFiles = 0
+      numNegFiles = 0
+      numVocabulary = 0
+      posiFreq = {}
+      negFreq = {}
+
+      for f in allFiles:
+         # print f
+         fTokens = self.fileNameTokenize(f)
+         if "1" in fTokens:
+            numNegFiles +=1
+            # print "it is a negative comment\n"
+            content = self.loadFile(directory+f)
+            words = self.tokenize(content)
+            
+            for w in words:
+               if w in negFreq.keys():
+                  negFreq[w] += 1
+               else:
+                  negFreq[w] = 1
+
+            
+         elif "5" in fTokens:
+            numPosFiles += 1
+            # print "positive comment\n"
+            content = self.loadFile(directory+f)
+            words = self.tokenize(content)
+
+            for w in words:
+               if w in posiFreq.keys():
+                  posiFreq[w] += 1
+               else:
+                  posiFreq[w] = 1
+
+      #calculate the size of vocabulary
+      visited = []
+      for x in posiFreq.keys():
+         if x not in visited:
+            visited.append(x)
+      for x in negFreq.keys():
+         if x not in visited:
+            visited.append(x)
+      vocSize = len(visited)
+      #convert dictionaries of counts into dictionaries of possibilities 
+      print "numPosFiles: ",
+      print numPosFiles
+      print "numNegFiles",
+      print numNegFiles
+      posiFreqSum = 0
+      for b in posiFreq.values():
+         posiFreqSum += b
+      for a in posiFreq.keys():
+         c = posiFreq[a]
+         posiFreq[a] = math.log((c+1)/float(posiFreqSum+vocSize), 10)
+      self.pseudoPosiPossibility = math.log(1/float(posiFreqSum+vocSize), 10)
+
+      negFreqSum = 0
+      for b in negFreq.values():
+         negFreqSum += b
+      for a in negFreq.keys():
+         c = negFreq[a]
+         negFreq[a] = math.log((c+1)/float(negFreqSum+vocSize),10)
+      self.pseudoNegPossibility = math.log(1/float(negFreqSum+vocSize), 10)
+
+      # print "negFreqSum",
+      # print negFreqSum
+      # print "posiFreqSum",
+      # print posiFreqSum
+      self.posiFreq = posiFreq
+      self.negFreq = negFreq
+      result = [self.posiFreq, self.negFreq, self.pseudoPosiPossibility, self.pseudoNegPossibility]
+      self.save(result, "pickle_0.txt")
       
    
-   def train(self):   
+   def train_for_evaluation(self):   
       """Trains the Naive Bayes Sentiment Classifier."""
       numPosFiles = 0
       numNegFiles = 0
@@ -109,10 +206,7 @@ class Bayes_Classifier:
                   visited.append(w)
 
       #convert dictionaries of counts into dictionaries of possibilities 
-      # print "numPosFiles: ",
-      # print numPosFiles
-      # print "numNegFiles",
-      # print numNegFiles
+
       for x in posiFreq.keys():
          if x not in visited:
             visited.append(x)
@@ -141,9 +235,8 @@ class Bayes_Classifier:
       result = [self.posiFreq, self.negFreq]
       self.save(result, "pickle.txt")
 
-      # test the chosen 1/10 of files 
     
-   def classify(self, sText):
+   def classify(self, sText, considerNeutral=True):
       """Given a target string sText, this function returns the most likely document
       class to which the target string belongs (i.e., positive, negative or neutral).
       """
@@ -153,6 +246,8 @@ class Bayes_Classifier:
       isNeg = 0
       for w in words:
          w = stemmer.stem(w)
+         #if w appears over-frequently in both positive reviews and 
+         #  negative reviews, we eliminate the w as giving us little information about the author's sentiment.
          if w in self.posiFreq.keys() and w in self.negFreq.keys():
             if self.posiFreq[w]>-2.5 and self.negFreq[w]>-2.5: 
                #print w
@@ -166,25 +261,16 @@ class Bayes_Classifier:
             isNeg += self.negFreq[w]
          else:
             isNeg += self.pseudoNegPossibility
-      # isPosi = math.pow(10, isPosi)
-      # isNeg = math.pow(10, isNeg)
-      #print "isPosi: ",
-      #print isPosi
-      #print "isNeg: ",
-      #print isNeg
-      # print "isPosi/isNeg", isPosi/isNeg
-
-      # ratio = isPosi/isNeg
-      # if ratio < upperBound and ratio > lowerBound: return "Neutral"
-      # el
-      if isPosi > isNeg: return "Positive"
+      
+      ratio = isPosi/isNeg
+      if considerNeutral and (ratio < 1.005 and ratio > 0.995): return "Neutral"
+      elif isPosi > isNeg: return "Positive"
       return "Negative"
    
    def classifyTest(self):
-      #self.macroTable = [[0,0,0],[0,0,0]]
 
       for i in self.testingSet:
-         result = self.classify(self.loadFile(self.directory + i))
+         result = self.classify(self.loadFile(self.directory + i), False)
          fTokens = self.fileNameTokenize(i)
          if ("5" in fTokens):
             if result == "Positive":
@@ -228,8 +314,7 @@ class Bayes_Classifier:
       return dObj
 
    def tokenize(self, sText): 
-      """Given a string of text sText, returns a list of the individual tokens that 
-      occur in that string (in order)."""
+      """Does stemming"""
       stemmer = PorterStemmer()
       lowerText = sText.lower()
       lTokens = []
@@ -265,8 +350,7 @@ class Bayes_Classifier:
       return lTokens
 
    def fileNameTokenize(self, sText): 
-      """Given a string of text sText, returns a list of the individual tokens that 
-      occur in that string (in order)."""
+      """Tokenize filename so we can find out whether the review is 1-star or 5-star"""
 
       lTokens = []
       sToken = ""
